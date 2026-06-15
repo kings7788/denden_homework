@@ -32,6 +32,10 @@ build/
 ### VS Code ###
 .vscode/
 
+### macOS / OS ###
+.DS_Store
+**/.DS_Store
+
 ### Secrets / local config (never commit credentials) ###
 application-dev.properties
 application-local.properties
