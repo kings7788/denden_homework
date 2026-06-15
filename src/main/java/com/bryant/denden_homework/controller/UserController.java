@@ -1,14 +1,12 @@
 package com.bryant.denden_homework.controller;
 
+import com.bryant.denden_homework.dto.LastLoginResponse;
 import com.bryant.denden_homework.entity.User;
 import com.bryant.denden_homework.repository.UserRepository;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import java.util.HashMap;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -31,14 +29,10 @@ public class UserController {
     @Operation(summary = "查詢自己的最後登入時間",
             description = "身分取自 JWT,只回傳呼叫者本人的資料,無法查詢他人。")
     @GetMapping("/me/last-login")
-    public ResponseEntity<Map<String, Object>> myLastLogin(Authentication authentication) {
+    public LastLoginResponse myLastLogin(Authentication authentication) {
         String email = authentication.getName();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
-
-        Map<String, Object> body = new HashMap<>();
-        body.put("email", user.getEmail());
-        body.put("last_login_at", user.getLastLoginAt());
-        return ResponseEntity.ok(body);
+        return new LastLoginResponse(user.getEmail(), user.getLastLoginAt());
     }
 }
