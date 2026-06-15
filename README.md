@@ -2,6 +2,13 @@
 
 會員註冊 / 登入 / 查詢系統 — Spring Boot 後端實作題。
 
+## 線上 Demo(GCP Cloud Run)
+
+- API base：<https://denden-homework-813602138003.asia-southeast1.run.app>
+- Swagger UI：<https://denden-homework-813602138003.asia-southeast1.run.app/swagger-ui/index.html>
+
+資料庫使用 Neon PostgreSQL,Email 經 Gmail SMTP 寄送。
+
 以 Email 為帳號註冊並寄送開通信、登入採「帳密 + Email OTP」兩階段認證、並提供「查詢自己最後登入時間」的受保護 API(非本人無法查詢)。
 
 ## 功能對應需求

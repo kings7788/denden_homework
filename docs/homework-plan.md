@@ -137,8 +137,12 @@ VerificationToken:
 - [x] Part 2 里程碑 2:接 email 寄開通信 —— **完成,Gmail SMTP 真寄成功(HTTP 201)**
 - [x] Part 2 里程碑 3:登入兩階段 + JWT + 最後登入時間查詢(13 測試通過)
 - [x] Part 2 里程碑 4:Swagger 文件(OpenAPI metadata + Bearer JWT 授權 + 端點註解,已驗證)
-- [~] Part 2 里程碑 5:部署 —— **Neon PostgreSQL 已串接並驗證持久化**;待容器化 + 部署 Cloud Run
-- [ ] Part 2 里程碑 6:push GitHub + README
+- [x] Part 2 里程碑 5:部署 —— **已部署到 Cloud Run,線上 API 運作正常**
+  - URL: https://denden-homework-813602138003.asia-southeast1.run.app(Swagger: /swagger-ui/index.html)
+  - GCP 專案 push-app-9c05e、region asia-southeast1、service denden-homework
+  - 環境變數:SPRING_PROFILES_ACTIVE=prod + DB_*/JWT_SECRET/EMAIL_PROVIDER=gmail/MAIL_*/APP_BASE_URL
+  - 踩雷:新專案需授予 compute 預設 SA `roles/cloudbuild.builds.builder` 才能用 --source 建置
+- [x] Part 2 里程碑 6:push GitHub + README —— https://github.com/kings7788/denden_homework (public)
 
 ### 里程碑 5 現況(資料庫)
 - `application-prod.properties`(已 commit,**全用環境變數,無密碼**):Postgres datasource + 關閉 H2 console + email/JWT 走 env。
