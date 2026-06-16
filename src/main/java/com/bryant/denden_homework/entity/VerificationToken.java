@@ -15,6 +15,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 /**
  * A one-time token tied to a user, used for account activation (ACTIVATION)
@@ -52,4 +53,9 @@ public class VerificationToken {
 
     @Column(nullable = false)
     private boolean used;
+
+    /** Failed OTP attempts; the challenge is burned once this reaches the max (LOGIN_OTP only). */
+    @ColumnDefault("0")
+    @Column(nullable = false)
+    private int attempts;
 }

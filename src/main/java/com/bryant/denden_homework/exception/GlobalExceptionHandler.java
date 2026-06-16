@@ -2,6 +2,7 @@ package com.bryant.denden_homework.exception;
 
 import java.util.Map;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
@@ -10,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /** Translates common service/validation errors into clean JSON responses. */
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -34,5 +36,20 @@ public class GlobalExceptionHandler {
                         fe -> fe.getDefaultMessage() == null ? "invalid" : fe.getDefaultMessage(),
                         (a, b) -> a));
         return ResponseEntity.badRequest().body(Map.of("errors", fieldErrors));
+    }
+
+    /** Email provider failed to deliver -> 502 Bad Gateway. */
+    @ExceptionHandler(EmailDeliveryException.class)
+    public ResponseEntity<Map<String, String>> handleEmailDelivery(EmailDeliveryException ex) {
+        return ResponseEntity.status(HttpStatus.BAD_GATEWAY)
+                .body(Map.of("error", "Could not send email, please try again later"));
+    }
+
+    /** Anything else -> sanitized 500 (no stack trace leaked to the client). */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleUnexpected(Exception ex) {
+        log.error("Unhandled exception", ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("error", "Internal server error"));
     }
 }

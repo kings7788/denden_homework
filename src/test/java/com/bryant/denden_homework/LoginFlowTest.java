@@ -1,27 +1,30 @@
 package com.bryant.denden_homework;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.bryant.denden_homework.entity.TokenType;
 import com.bryant.denden_homework.entity.User;
 import com.bryant.denden_homework.entity.UserStatus;
 import com.bryant.denden_homework.repository.UserRepository;
-import com.bryant.denden_homework.repository.VerificationTokenRepository;
+import com.bryant.denden_homework.service.OtpGenerator;
 import com.jayway.jsonpath.JsonPath;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
 @AutoConfigureMockMvc
 class LoginFlowTest {
+
+    private static final String OTP = "123456";
 
     @Autowired
     private MockMvc mvc;
@@ -29,10 +32,15 @@ class LoginFlowTest {
     @Autowired
     private UserRepository userRepository;
 
-    @Autowired
-    private VerificationTokenRepository tokenRepository;
+    /** Fixed OTP so the test knows the code without reading the (now hashed) DB value. */
+    @MockitoBean
+    private OtpGenerator otpGenerator;
 
-    /** Registers a user and forces it ACTIVE (activation flow covered elsewhere). */
+    @BeforeEach
+    void stubOtp() {
+        when(otpGenerator.generate()).thenReturn(OTP);
+    }
+
     private void registerActiveUser(String email) throws Exception {
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -43,39 +51,48 @@ class LoginFlowTest {
         userRepository.save(user);
     }
 
-    @Test
-    void twoStageLoginThenQueryOwnLastLogin() throws Exception {
-        registerActiveUser("dave@example.com");
-
-        // Stage 1: email + password -> challengeId, OTP emailed
-        String loginResp = mvc.perform(post("/api/auth/login")
+    private String startLogin(String email) throws Exception {
+        String resp = mvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"dave@example.com\",\"password\":\"password123\"}"))
+                        .content("{\"email\":\"" + email + "\",\"password\":\"password123\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.challenge_id").exists())
                 .andReturn().getResponse().getContentAsString();
-        String challengeId = JsonPath.read(loginResp, "$.challenge_id");
+        return JsonPath.read(resp, "$.challenge_id");
+    }
 
-        // Read the OTP that was generated (in tests email is only logged)
-        String otp = tokenRepository
-                .findFirstByUser_EmailAndType("dave@example.com", TokenType.LOGIN_OTP)
-                .orElseThrow().getCode();
-
-        // Stage 2: challengeId + OTP -> JWT
-        String verifyResp = mvc.perform(post("/api/auth/login/verify")
+    private String loginAndGetJwt(String email) throws Exception {
+        String challengeId = startLogin(email);
+        String resp = mvc.perform(post("/api/auth/login/verify")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"challenge_id\":\"" + challengeId + "\",\"otp\":\"" + otp + "\"}"))
+                        .content("{\"challenge_id\":\"" + challengeId + "\",\"otp\":\"" + OTP + "\"}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.access_token").exists())
-                .andExpect(jsonPath("$.token_type").value("Bearer"))
                 .andReturn().getResponse().getContentAsString();
-        String jwt = JsonPath.read(verifyResp, "$.access_token");
+        return JsonPath.read(resp, "$.access_token");
+    }
 
-        // Query own last-login with the JWT
+    @Test
+    void twoStageLoginThenQueryOwnLastLogin() throws Exception {
+        registerActiveUser("dave@example.com");
+        String jwt = loginAndGetJwt("dave@example.com");
+
         mvc.perform(get("/api/users/me/last-login").header("Authorization", "Bearer " + jwt))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.email").value("dave@example.com"))
                 .andExpect(jsonPath("$.last_login_at").exists());
+    }
+
+    @Test
+    void eachUserSeesOnlyOwnData() throws Exception {
+        registerActiveUser("amy@example.com");
+        registerActiveUser("ben@example.com");
+        String amyJwt = loginAndGetJwt("amy@example.com");
+        String benJwt = loginAndGetJwt("ben@example.com");
+
+        mvc.perform(get("/api/users/me/last-login").header("Authorization", "Bearer " + amyJwt))
+                .andExpect(jsonPath("$.email").value("amy@example.com"));
+        mvc.perform(get("/api/users/me/last-login").header("Authorization", "Bearer " + benJwt))
+                .andExpect(jsonPath("$.email").value("ben@example.com"));
     }
 
     @Test
@@ -102,7 +119,6 @@ class LoginFlowTest {
 
     @Test
     void inactiveAccountCannotLogin() throws Exception {
-        // Register but DO NOT activate
         mvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"email\":\"frank@example.com\",\"password\":\"password123\"}"))
@@ -117,16 +133,48 @@ class LoginFlowTest {
     @Test
     void wrongOtpRejected() throws Exception {
         registerActiveUser("grace@example.com");
-        String loginResp = mvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"email\":\"grace@example.com\",\"password\":\"password123\"}"))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        String challengeId = JsonPath.read(loginResp, "$.challenge_id");
+        String challengeId = startLogin("grace@example.com");
 
         mvc.perform(post("/api/auth/login/verify")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content("{\"challengeId\":\"" + challengeId + "\",\"otp\":\"000000\"}"))
+                        .content("{\"challenge_id\":\"" + challengeId + "\",\"otp\":\"000000\"}"))
                 .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void challengeBurnedAfterMaxAttempts() throws Exception {
+        registerActiveUser("heidi@example.com");
+        String challengeId = startLogin("heidi@example.com");
+
+        // 5 wrong attempts -> challenge burned
+        for (int i = 0; i < 5; i++) {
+            mvc.perform(post("/api/auth/login/verify")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"challenge_id\":\"" + challengeId + "\",\"otp\":\"000000\"}"))
+                    .andExpect(status().isBadRequest());
+        }
+        // even the CORRECT otp now fails — the challenge is used up
+        mvc.perform(post("/api/auth/login/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"challenge_id\":\"" + challengeId + "\",\"otp\":\"" + OTP + "\"}"))
+                .andExpect(status().isConflict());
+    }
+
+    @Test
+    void previousOtpInvalidatedOnNewLogin() throws Exception {
+        registerActiveUser("ivan@example.com");
+        String firstChallenge = startLogin("ivan@example.com");
+        String secondChallenge = startLogin("ivan@example.com"); // invalidates the first
+
+        // first challenge no longer usable
+        mvc.perform(post("/api/auth/login/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"challenge_id\":\"" + firstChallenge + "\",\"otp\":\"" + OTP + "\"}"))
+                .andExpect(status().isConflict());
+        // second challenge works
+        mvc.perform(post("/api/auth/login/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"challenge_id\":\"" + secondChallenge + "\",\"otp\":\"" + OTP + "\"}"))
+                .andExpect(status().isOk());
     }
 }
