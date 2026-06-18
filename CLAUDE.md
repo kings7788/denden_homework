@@ -4,7 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-Spring Boot 3.5.x web application (Java 17, Maven). Package root: `com.bryant.denden_homework`. Currently a fresh scaffold — only the `@SpringBootApplication` entry point (`DendenHomeworkApplication`) exists, so most feature code (controllers, entities, repositories, services, security config) is yet to be written.
+Spring Boot 3.5.x web application (Java 17, Maven). Package root: `com.bryant.denden_homework`. Implements a member system (registration + email activation, two-step login with emailed OTP + JWT, self last-login query) plus WebSocket practice (raw echo/chat handlers and a STOMP chat).
+
+## Repository structure (monorepo, front/back separated)
+
+This repo holds **both** apps in cleanly separated folders — do NOT mix them:
+- **Backend** — Spring Boot at the repo root (`pom.xml`, `src/main/java/...`). Deploys to Cloud Run.
+- **Frontend** — Vue 3 + Vite under `frontend/` (own `package.json`, `.gitignore`, build). Deploys to Firebase Hosting (`firebase.json` at root points to `frontend/dist`).
+
+Contract between them: REST under `/api/**` and STOMP/WebSocket at `/ws-stomp` (+ raw `/ws/echo`, `/ws/chat`). In dev the Vite proxy forwards `/api` and `/ws-stomp` to `localhost:8080`; in prod set backend `CORS_ALLOWED_ORIGINS` to the frontend URL and front-end `VITE_WS_URL` to the Cloud Run WebSocket URL. Commit with scope prefixes: `feat(backend): ...` / `feat(frontend): ...`.
 
 ## Commands
 
