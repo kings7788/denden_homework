@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>WebSocket 聊天室</title>
+  <style>
+    body { font-family: sans-serif; max-width: 600px; margin: 40px auto; }
+    #log { border: 1px solid #ccc; height: 280px; overflow-y: auto; padding: 8px; margin: 12px 0; }
+    .sys { color: #999; } .msg { color: #222; }
+  </style>
+</head>
+<body>
+  <h2>WebSocket 聊天室</h2>
+  <p style="color:#666">開兩個分頁同時打開這頁,在一個分頁發言,另一個會即時收到。</p>
+  <div id="log"></div>
+  <input id="msg" placeholder="輸入訊息後按 Enter" style="width:75%">
+  <button onclick="send()">送出</button>
+
+  <script>
+    const log = (text, cls) => {
+      const d = document.getElementById('log');
+      d.innerHTML += `<div class="${cls}">${text}</div>`;
+      d.scrollTop = d.scrollHeight;
+    };
+
+    const ws = new WebSocket(`ws://${location.host}/ws/chat`);
+    ws.onmessage = (e) => log(e.data, e.data.startsWith('[系統]') ? 'sys' : 'msg');
+    ws.onclose   = () => log('[連線關閉]', 'sys');
+
+    function send() {
+      const input = document.getElementById('msg');
+      if (!input.value || ws.readyState !== WebSocket.OPEN) return;
+      ws.send(input.value);   // 只送出;畫面等廣播回來才顯示(包含自己)
+      input.value = '';
+    }
+    document.getElementById('msg').addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+  </script>
+</body>
+</html>
