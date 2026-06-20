@@ -62,6 +62,9 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(allowedOrigins);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
+        // SockJS XHR transport sends credentials cross-origin; the browser then
+        // requires Access-Control-Allow-Credentials: true (only valid with specific origins).
+        config.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", config);
         return source;
