@@ -14,12 +14,15 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @EnableWebSocketMessageBroker
 public class StompConfig implements WebSocketMessageBrokerConfigurer {
 
-    /** The URL clients open the STOMP connection on (with SockJS fallback). */
+    /**
+     * The URL clients open the STOMP connection on. Native WebSocket (no SockJS):
+     * the WS handshake uses an Origin check (allowed below), avoiding SockJS's
+     * cross-origin XHR /info request and its brittle CORS/credentials handling.
+     */
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws-stomp")
-                .setAllowedOriginPatterns("*")
-                .withSockJS(); // lets browsers without WebSocket fall back to HTTP
+                .setAllowedOriginPatterns("*");
     }
 
     @Override

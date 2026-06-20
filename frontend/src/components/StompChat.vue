@@ -1,10 +1,10 @@
 <script setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import SockJS from 'sockjs-client'
 import { Client } from '@stomp/stompjs'
 
-// Dev: '/ws-stomp' (Vite proxies to :8080). Prod: full Cloud Run URL via VITE_WS_URL.
-const wsUrl = import.meta.env.VITE_WS_URL || '/ws-stomp'
+// Native WebSocket (no SockJS). Dev: ws://localhost:5173/ws-stomp (Vite proxies to :8080).
+// Prod: wss://<cloud-run>/ws-stomp via VITE_WS_URL.
+const wsUrl = import.meta.env.VITE_WS_URL || `ws://${location.host}/ws-stomp`
 
 const messages = ref([])
 const draft = ref('')
@@ -14,7 +14,7 @@ let client
 
 onMounted(() => {
   client = new Client({
-    webSocketFactory: () => new SockJS(wsUrl),
+    brokerURL: wsUrl, // native WebSocket endpoint
     reconnectDelay: 3000, // auto-reconnect if the connection drops
     onConnect: () => {
       connected.value = true
@@ -25,6 +25,9 @@ onMounted(() => {
     },
     onWebSocketClose: () => {
       connected.value = false
+    },
+    onStompError: (frame) => {
+      console.error('STOMP error:', frame.headers['message'], frame.body)
     },
   })
   client.activate()
